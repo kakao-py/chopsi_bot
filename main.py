@@ -27,7 +27,7 @@ PROFILY = [
 
 # --- Nastavení pro automatické aktualizace z GitHubu ---
 AKTUALNI_VERZE = "1.0.1"
-VERSION_URL = "https://raw.githubusercontent.com/kakao-py/chopsi/refs/heads/main/version.json"
+VERSION_URL = "https://raw.githubusercontent.com/kakao-py/chopsi_bot/refs/heads/main/version.json"
 
 # Seznam všech souborů bota, které se mají z GitHubu automaticky stahovat a aktualizovat
 SOUBORY_K_AKTUALIZACI = [
@@ -56,7 +56,7 @@ def zkontrolovat_aktualizace():
                 print(f"[UPDATE] Nalezena nová verze {cloudu_verze}! Stahuji soubory bota...")
                 
                 for nazev_souboru in SOUBORY_K_AKTUALIZACI:
-                    url_souboru = f"https://raw.githubusercontent.com/kakao-py/chopsi/refs/heads/main/{nazev_souboru}"
+                    url_souboru = f"https://raw.githubusercontent.com/kakao-py/chopsi_bot/refs/heads/main/{nazev_souboru}"
                     cesta_k_souboru = os.path.join(BASE_DIR, nazev_souboru)
                     
                     os.makedirs(os.path.dirname(cesta_k_souboru), exist_ok=True)
