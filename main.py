@@ -31,8 +31,7 @@ VERSION_URL = "https://raw.githubusercontent.com/kakao-py/chopsi/refs/heads/main
 
 # Seznam všech souborů bota, které se mají z GitHubu automaticky stahovat a aktualizovat
 SOUBORY_K_AKTUALIZACI = [
-    "bot_server.py",
-    # Pokud se hlavní soubor jmenuje main.py, přepiš název výše na "main.py"
+    "main_2.py",
 ]
 
 def nacti_token() -> str:
@@ -66,7 +65,7 @@ def zkontrolovat_aktualizace():
                     with urllib.request.urlopen(url_souboru, timeout=5) as resp:
                         obsah = resp.read().decode("utf-8").replace("\r\n", "\n")
                         
-                        if nazev_souboru in ["bot_server.py", "main.py"]:
+                        if nazev_souboru in ["bot_server.py", "main.py", "main_2.py"]:
                             starý_radek = f'AKTUALNI_VERZE = "{AKTUALNI_VERZE}"'
                             nový_radek = f'AKTUALNI_VERZE = "{cloudu_verze}"'
                             if starý_radek in obsah:
