@@ -21,8 +21,6 @@ QUEUE_CHANNEL_ID = 1545914426639786015
 # Seznam profilů pro našeptávač (autocomplete)
 PROFILY = [
     {"name": "Všichni", "value": "v"},
-    # Sem si můžeš přidat další pevné kódy profilů, např.:
-    # {"name": "Profil 1", "value": "p1"},
 ]
 
 # --- Nastavení pro automatické aktualizace z GitHubu ---
@@ -31,7 +29,7 @@ VERSION_URL = "https://raw.githubusercontent.com/kakao-py/chopsi_bot/refs/heads/
 
 # Seznam všech souborů bota, které se mají z GitHubu automaticky stahovat a aktualizovat
 SOUBORY_K_AKTUALIZACI = [
-    "main_2.py",
+    "main.py",
 ]
 
 def nacti_token() -> str:
@@ -48,8 +46,7 @@ def zkontrolovat_aktualizace():
     print(f"[UPDATE] Spouštím kontrolu aktualizací bota... Moje verze: {AKTUALNI_VERZE}")
     try:
         with urllib.request.urlopen(VERSION_URL, timeout=5) as response:
-            raw_data = response.read().decode("utf-8")
-            data = json.loads(raw_data)
+            data = json.loads(response.read().decode("utf-8"))
             cloudu_verze = data.get("version")
             
             if cloudu_verze and cloudu_verze != AKTUALNI_VERZE:
@@ -65,7 +62,7 @@ def zkontrolovat_aktualizace():
                     with urllib.request.urlopen(url_souboru, timeout=5) as resp:
                         obsah = resp.read().decode("utf-8").replace("\r\n", "\n")
                         
-                        if nazev_souboru in ["bot_server.py", "main.py", "main_2.py"]:
+                        if nazev_souboru == "main.py":
                             starý_radek = f'AKTUALNI_VERZE = "{AKTUALNI_VERZE}"'
                             nový_radek = f'AKTUALNI_VERZE = "{cloudu_verze}"'
                             if starý_radek in obsah:
@@ -95,6 +92,12 @@ async def profile_autocomplete(interaction: discord.Interaction, current: str) -
     choices = [app_commands.Choice(name=p["name"], value=p["value"]) for p in PROFILY]
     return [choice for choice in choices if current.lower() in choice.name.lower()]
 
+async def ziskej_frontu_kanal():
+    channel = client.get_channel(QUEUE_CHANNEL_ID)
+    if not channel:
+        channel = await client.fetch_channel(QUEUE_CHANNEL_ID)
+    return channel
+
 @tree.command(name="odmena", description="Přidá odměnu v minutách k času pro ponocování")
 @app_commands.describe(
     minuty="Počet minut odměny (např. 15)",
@@ -106,25 +109,28 @@ async def odmena(interaction: discord.Interaction, minuty: int, duvod: str = "Od
     if minuty <= 0:
         await interaction.response.send_message("❌ Počet minut musí být větší než 0!", ephemeral=True)
         return
-    channel = client.get_channel(QUEUE_CHANNEL_ID)
-    if not channel:
-        try:
-            channel = await client.fetch_channel(QUEUE_CHANNEL_ID)
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Nepodařilo se najít cílový kanál: {e}", ephemeral=True)
-            return
+    
+    try:
+        channel = await ziskej_frontu_kanal()
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Nepodařilo se najít cílový kanál: {e}", ephemeral=True)
+        return
+
     payload = json.dumps({
         "type": "odmena",
         "target": typ,
         "minuty": minuty,
         "duvod": duvod
     }, ensure_ascii=False)
+    
     await channel.send(f"PENDING_CMD:{payload}")
+    
     try:
         await interaction.response.send_message(
             f"🎁 **Odměna odeslána do fronty!**\n"
             f"Přidáno: **+{minuty} min** (Důvod: *{duvod}*)\n"
-            f"Profil: **{typ.upper()}**"
+            f"Profil: **{typ.upper()}**",
+            ephemeral=True
         )
     except Exception:
         pass
@@ -157,6 +163,7 @@ async def ukol(
     frekvence: str = None
 ):
     dnes_str = date.today().strftime("%Y-%m-%d")
+    
     if rezim == "jednorazovy":
         frekvence = None
         if deadline:
@@ -171,6 +178,7 @@ async def ukol(
         deadline = None
         if not frekvence:
             frekvence = "denne"
+
     novy_ukol = {
         "id": f"task_{datetime.now().timestamp()}",
         "nazev": nazev.strip(),
@@ -184,29 +192,33 @@ async def ukol(
         "posledni_reset": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "hotovo": False
     }
-    channel = client.get_channel(QUEUE_CHANNEL_ID)
-    if not channel:
-        try:
-            channel = await client.fetch_channel(QUEUE_CHANNEL_ID)
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Nepodařilo se najít cílový kanál: {e}", ephemeral=True)
-            return
+
+    try:
+        channel = await ziskej_frontu_kanal()
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Nepodařilo se najít cílový kanál: {e}", ephemeral=True)
+        return
+
     payload = json.dumps({
         "type": "ukol",
         "target": typ,
         "ukol_data": novy_ukol
     }, ensure_ascii=False)
+    
     await channel.send(f"PENDING_CMD:{payload}")
-    info_reznimu = f"Režim: **{rezim}**"
+    
+    info_rezimu = f"Režim: **{rezim}**"
     if rezim == "jednorazovy":
-        info_reznimu += f" | Deadline: **{deadline if deadline else 'Bez deadlinu'}**"
+        info_rezimu += f" | Deadline: **{deadline if deadline else 'Bez deadlinu'}**"
     else:
-        info_reznimu += f" | Frekvence: **{frekvence}**"
+        info_rezimu += f" | Frekvence: **{frekvence}**"
+        
     try:
         await interaction.response.send_message(
             f"✅ **Úkol odeslán do fronty!**\n"
             f"Název: **{nazev.strip()}** | Odměna: **{minuty} min** | Profil: **{typ.upper()}**\n"
-            f"{info_reznimu}"
+            f"{info_rezimu}",
+            ephemeral=True
         )
     except Exception:
         pass
