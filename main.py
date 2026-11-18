@@ -24,7 +24,7 @@ PROFILY = [
 ]
 
 # --- Nastavení pro automatické aktualizace z GitHubu ---
-AKTUALNI_VERZE = "1.0.2"
+AKTUALNI_VERZE = "1.0.3"
 VERSION_URL = "https://raw.githubusercontent.com/kakao-py/chopsi_bot/refs/heads/main/version.json"
 
 # Seznam všech souborů bota, které se mají z GitHubu automaticky stahovat a aktualizovat
