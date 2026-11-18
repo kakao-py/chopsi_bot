@@ -107,6 +107,7 @@ async def ziskej_frontu_kanal():
 @app_commands.autocomplete(typ=profile_autocomplete)
 async def odmena(interaction: discord.Interaction, minuty: int, duvod: str = "Odměna", typ: str = "v"):
     if minuty <= 0:
+        # Tady chybové hlášky můžeme nechat soukromé (ephemeral=True), aby to nezarůstalo chat
         await interaction.response.send_message("❌ Počet minut musí být větší než 0!", ephemeral=True)
         return
     
@@ -126,11 +127,12 @@ async def odmena(interaction: discord.Interaction, minuty: int, duvod: str = "Od
     await channel.send(f"PENDING_CMD:{payload}")
     
     try:
+        # ZDE ZMĚNA: ephemeral=False zajistí, že odpověď uvidí všichni
         await interaction.response.send_message(
             f"🎁 **Odměna odeslána do fronty!**\n"
             f"Přidáno: **+{minuty} min** (Důvod: *{duvod}*)\n"
             f"Profil: **{typ.upper()}**",
-            ephemeral=True
+            ephemeral=False
         )
     except Exception:
         pass
@@ -214,11 +216,12 @@ async def ukol(
         info_rezimu += f" | Frekvence: **{frekvence}**"
         
     try:
+        # ZDE ZMĚNA: ephemeral=False zajistí, že odpověď uvidí všichni
         await interaction.response.send_message(
             f"✅ **Úkol odeslán do fronty!**\n"
             f"Název: **{nazev.strip()}** | Odměna: **{minuty} min** | Profil: **{typ.upper()}**\n"
             f"{info_rezimu}",
-            ephemeral=True
+            ephemeral=False
         )
     except Exception:
         pass
