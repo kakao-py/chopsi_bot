@@ -24,13 +24,14 @@ PROFILY = [
 ]
 
 # --- Nastavení pro automatické aktualizace z GitHubu ---
-AKTUALNI_VERZE = "1.0.3"
+AKTUALNI_VERZE = "1.0.1"
 VERSION_URL = "https://raw.githubusercontent.com/kakao-py/chopsi_bot/refs/heads/main/version.json"
 
 # Seznam všech souborů bota, které se mají z GitHubu automaticky stahovat a aktualizovat
 SOUBORY_K_AKTUALIZACI = [
     "main.py",
 ]
+
 
 def nacti_token() -> str:
     if os.path.exists(TOKEN_FILE):
@@ -42,42 +43,44 @@ def nacti_token() -> str:
             print(f"[CHYBA] Nelze načíst token.json: {e}")
     return ""
 
+
 def zkontrolovat_aktualizace():
     print(f"[UPDATE] Spouštím kontrolu aktualizací bota... Moje verze: {AKTUALNI_VERZE}")
     try:
         with urllib.request.urlopen(VERSION_URL, timeout=5) as response:
             data = json.loads(response.read().decode("utf-8"))
             cloudu_verze = data.get("version")
-            
+
             if cloudu_verze and cloudu_verze != AKTUALNI_VERZE:
                 print(f"[UPDATE] Nalezena nová verze {cloudu_verze}! Stahuji soubory bota...")
-                
+
                 for nazev_souboru in SOUBORY_K_AKTUALIZACI:
                     url_souboru = f"https://raw.githubusercontent.com/kakao-py/chopsi_bot/refs/heads/main/{nazev_souboru}"
                     cesta_k_souboru = os.path.join(BASE_DIR, nazev_souboru)
-                    
+
                     os.makedirs(os.path.dirname(cesta_k_souboru), exist_ok=True)
-                    
+
                     print(f"[UPDATE] Stahuji: {nazev_souboru}")
                     with urllib.request.urlopen(url_souboru, timeout=5) as resp:
                         obsah = resp.read().decode("utf-8").replace("\r\n", "\n")
-                        
+
                         if nazev_souboru == "main.py":
                             starý_radek = f'AKTUALNI_VERZE = "{AKTUALNI_VERZE}"'
                             nový_radek = f'AKTUALNI_VERZE = "{cloudu_verze}"'
                             if starý_radek in obsah:
                                 obsah = obsah.replace(starý_radek, nový_radek)
-                        
+
                         with open(cesta_k_souboru, "w", encoding="utf-8", newline="") as f:
                             f.write(obsah)
-                
+
                 print("[UPDATE] Všechny soubory bota úspěšně aktualizovány. Restartuji bota...")
                 os.execv(sys.executable, [sys.executable] + sys.argv)
             else:
                 print("[UPDATE] Bot je již aktuální.")
-                
+
     except Exception as e:
         print(f"[UPDATE CHYBA] Kontrola aktualizací bota selhala: {e}")
+
 
 # ===================================================
 # ============== DISCORD BOT LOGIKA =================
@@ -88,15 +91,18 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
+
 async def profile_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     choices = [app_commands.Choice(name=p["name"], value=p["value"]) for p in PROFILY]
     return [choice for choice in choices if current.lower() in choice.name.lower()]
+
 
 async def ziskej_frontu_kanal():
     channel = client.get_channel(QUEUE_CHANNEL_ID)
     if not channel:
         channel = await client.fetch_channel(QUEUE_CHANNEL_ID)
     return channel
+
 
 @tree.command(name="odmena", description="Přidá odměnu v minutách k času pro ponocování")
 @app_commands.describe(
@@ -107,10 +113,9 @@ async def ziskej_frontu_kanal():
 @app_commands.autocomplete(typ=profile_autocomplete)
 async def odmena(interaction: discord.Interaction, minuty: int, duvod: str = "Odměna", typ: str = "v"):
     if minuty <= 0:
-        # Tady chybové hlášky můžeme nechat soukromé (ephemeral=True), aby to nezarůstalo chat
         await interaction.response.send_message("❌ Počet minut musí být větší než 0!", ephemeral=True)
         return
-    
+
     try:
         channel = await ziskej_frontu_kanal()
     except Exception as e:
@@ -123,11 +128,10 @@ async def odmena(interaction: discord.Interaction, minuty: int, duvod: str = "Od
         "minuty": minuty,
         "duvod": duvod
     }, ensure_ascii=False)
-    
+
     await channel.send(f"PENDING_CMD:{payload}")
-    
+
     try:
-        # ZDE ZMĚNA: ephemeral=False zajistí, že odpověď uvidí všichni
         await interaction.response.send_message(
             f"🎁 **Odměna odeslána do fronty!**\n"
             f"Přidáno: **+{minuty} min** (Důvod: *{duvod}*)\n"
@@ -137,6 +141,7 @@ async def odmena(interaction: discord.Interaction, minuty: int, duvod: str = "Od
     except Exception:
         pass
 
+
 @tree.command(name="ukol", description="Vytvoří nový úkol (jednorázový s/bez deadlinu, nebo opakující se)")
 @app_commands.describe(
     minuty="Počet minut odměny (např. 15)",
@@ -144,7 +149,8 @@ async def odmena(interaction: discord.Interaction, minuty: int, duvod: str = "Od
     typ="Typ / kód profilu",
     rezim="Režim úkolu: jednorazovy nebo opakujici",
     deadline="Datum ve tvaru RRRR-MM-DD (volitelné, pro jednorázové úkoly)",
-    frekvence="Frekvence pro opakující se úkoly: denne nebo tydne"
+    frekvence="Frekvence pro opakující se úkoly: denne, tydne, mesicne nebo vlastni",
+    dni="Počet dní opakování (pro režim opakujici / frekvenci vlastni)"
 )
 @app_commands.choices(rezim=[
     app_commands.Choice(name="Jednorázový", value="jednorazovy"),
@@ -152,20 +158,23 @@ async def odmena(interaction: discord.Interaction, minuty: int, duvod: str = "Od
 ])
 @app_commands.choices(frekvence=[
     app_commands.Choice(name="Denně", value="denne"),
-    app_commands.Choice(name="Týdně", value="tydne")
+    app_commands.Choice(name="Týdně", value="tydne"),
+    app_commands.Choice(name="Měsíčně", value="mesicne"),
+    app_commands.Choice(name="Každých X dní", value="vlastni")
 ])
 @app_commands.autocomplete(typ=profile_autocomplete)
 async def ukol(
-    interaction: discord.Interaction, 
-    minuty: int, 
-    nazev: str, 
-    typ: str, 
-    rezim: str = "jednorazovy", 
-    deadline: str = None, 
-    frekvence: str = None
+    interaction: discord.Interaction,
+    minuty: int,
+    nazev: str,
+    typ: str,
+    rezim: str = "jednorazovy",
+    deadline: str = None,
+    frekvence: str = None,
+    dni: int = None
 ):
     dnes_str = date.today().strftime("%Y-%m-%d")
-    
+
     if rezim == "jednorazovy":
         frekvence = None
         if deadline:
@@ -179,7 +188,17 @@ async def ukol(
     elif rezim == "opakujici":
         deadline = None
         if not frekvence:
-            frekvence = "denne"
+            frekvence = "vlastni" if dni else "denne"
+
+        if dni is None:
+            if frekvence == "denne":
+                dni = 1
+            elif frekvence == "tydne":
+                dni = 7
+            elif frekvence == "mesicne":
+                dni = 30
+            else:
+                dni = 1
 
     novy_ukol = {
         "id": f"task_{datetime.now().timestamp()}",
@@ -188,6 +207,7 @@ async def ukol(
         "typ": typ,
         "rezim": rezim,
         "frekvence": frekvence,
+        "dni": dni if rezim == "opakujici" else 1,
         "reset_cas": "00:00",
         "deadline": deadline,
         "datum_vytvoreni": dnes_str,
@@ -206,17 +226,18 @@ async def ukol(
         "target": typ,
         "ukol_data": novy_ukol
     }, ensure_ascii=False)
-    
+
     await channel.send(f"PENDING_CMD:{payload}")
-    
+
     info_rezimu = f"Režim: **{rezim}**"
     if rezim == "jednorazovy":
         info_rezimu += f" | Deadline: **{deadline if deadline else 'Bez deadlinu'}**"
     else:
         info_rezimu += f" | Frekvence: **{frekvence}**"
-        
+        if dni:
+            info_rezimu += f" (**{dni} dní**)"
+
     try:
-        # ZDE ZMĚNA: ephemeral=False zajistí, že odpověď uvidí všichni
         await interaction.response.send_message(
             f"✅ **Úkol odeslán do fronty!**\n"
             f"Název: **{nazev.strip()}** | Odměna: **{minuty} min** | Profil: **{typ.upper()}**\n"
@@ -226,20 +247,22 @@ async def ukol(
     except Exception:
         pass
 
+
 @client.event
 async def on_ready():
     await tree.sync()
     print(f"✅ Bot běží 24/7 jako {client.user.name} a čeká na příkazy!")
 
+
 if __name__ == "__main__":
     zkontrolovat_aktualizace()
-    
+
     token = nacti_token()
     if not token:
         print("❌ CHYBA: Chybí bot_token v souboru token.json!")
         sys.exit(1)
-        
+
     if not QUEUE_CHANNEL_ID or QUEUE_CHANNEL_ID == 123456789012345678:
         print("⚠️ UPOZORNĚNÍ: Zapomněl jsi změnit QUEUE_CHANNEL_ID!")
-        
+
     client.run(token)
